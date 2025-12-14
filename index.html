@@ -281,13 +281,31 @@
             const [companyName, setCompanyName] = useState('Яйцо Хорошее');
 
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
-
-            useEffect(() => {
-                // Если будет API, раскомментируй и используй fetch тут
-                /* if (API_URL) {
-                    fetch(API_URL).then(r => r.json()).then(newData => setData({...DEFAULT_DATA, ...newData})).catch(e => console.error(e));
+            
+               useEffect(() => {
+                // 1. ЗАГРУЗКА ДАННЫХ ИЗ N8N (Теперь активно!)
+                if (API_URL) {
+                    console.log("🚀 Начинаем загрузку из:", API_URL);
+                    fetch(API_URL)
+                        .then(r => {
+                            if (!r.ok) throw new Error("Ошибка сети: " + r.status);
+                            return r.json();
+                        })
+                        .then(newData => {
+                            console.log("✅ Данные получены:", newData);
+                            // Объединяем старые данные с новыми
+                            setData(prev => ({...DEFAULT_DATA, ...newData}));
+                            // Если есть Toast, можно показать, что данные обновились
+                            // setToast({ message: "Данные обновлены", type: 'success' });
+                            // Скрываем тост через 3 сек
+                            // setTimeout(() => setToast({ message: null, type: 'info' }), 3000);
+                        })
+                        .catch(e => {
+                            console.error("❌ Ошибка получения данных:", e);
+                        });
                 }
-                */
+
+                // 2. Инициализация Telegram
                 const tg = window.Telegram?.WebApp;
                 if (tg && tg.initDataUnsafe?.start_param) {
                     const rawName = tg.initDataUnsafe.start_param;
@@ -728,4 +746,5 @@
 </body>
 
 </html>
+
 
