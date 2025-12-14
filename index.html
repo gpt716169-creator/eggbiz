@@ -44,9 +44,22 @@
         }
         
         .mercury-btn { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        
+        /* Лоадер */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0F1115; z-index: 9999; display: flex;
+            justify-content: center; align-items: center; flex-direction: column;
+            transition: opacity 0.5s;
+        }
     </style>
 </head>
 <body>
+    <div id="loader">
+        <svg class="animate-spin text-yellow-500 mb-4" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <div class="text-gray-400 text-sm font-mono">Синхронизация...</div>
+    </div>
+
     <div id="root"></div>
     <div id="error-logger"></div>
 
@@ -100,212 +113,103 @@
             return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} dangerouslySetInnerHTML={{ __html: svgContent }} />;
         };
 
-        // --- MOCK DATA (СООТВЕТСТВУЕТ GOOGLE ТАБЛИЦЕ) ---
+        // --- MOCK DATA ---
         const DEFAULT_DATA = {
             summary: {
-                // Из листа "Dashboard"
-                netIncome: 450000, 
-                revenue: 1200000, 
-                soldThisMonth: 108500, 
-                eggBalance: 12500,
-                forecastDemand: 14200, 
-                forecastCost: 120700, 
-                forecastExplanation: "База прошлого года (12,100) + Сезонный рост (2,100)",
-                avgCost: 8.5, 
-                avgPrice: 11.2,
-                
-                // Из листа "Stock" (Склад)
-                warehouse: {
-                    c0: 4500,  // Яйцо С0
-                    c1: 5200,  // Яйцо С1
-                    c2: 1800,  // Яйцо С2
-                    sv: 800,   // СВ (Высший)
-                    dirty: 200, // Бой / Грязное
-                    packaging: { 
-                        boxes: 120, // Коробки
-                        trays: 450  // Прокладки
-                    }
-                },
-                // Детализация для графиков (можно также хранить в Dashboard или отдельном листе)
+                netIncome: 450000, revenue: 1200000, soldThisMonth: 108500, eggBalance: 12500,
+                forecastDemand: 14200, forecastCost: 120700, forecastExplanation: "База прошлого года + Сезонный рост",
+                avgCost: 8.5, avgPrice: 11.2,
+                warehouse: { c0: 4500, c1: 5200, c2: 1800, sv: 800, dirty: 200, packaging: { boxes: 120, trays: 450 } },
                 incomeDetails: { today: 18500, week: 124000, month: 450000 },
-                soldDetails: {
-                    categories: [
-                        { name: 'C1', amount: 45000, percent: 45 },
-                        { name: 'C0', amount: 32000, percent: 30 },
-                        { name: 'C2', amount: 15000, percent: 15 },
-                        { name: 'СВ', amount: 16500, percent: 10 },
-                    ]
-                }
+                soldDetails: { categories: [{ name: 'C1', amount: 45000, percent: 45 }, { name: 'C0', amount: 32000, percent: 30 }, { name: 'C2', amount: 15000, percent: 15 }, { name: 'СВ', amount: 16500, percent: 10 }] }
             },
             trends: { income: +12, revenue: +5, sold: +8, churn: -2 },
-            
-            // Из листа "Clients" (Должники)
-            debtors: [
-                { id: 1, name: 'Кафе "Утро"', amount: 45000, days: 5 },
-                { id: 2, name: 'ИП Смирнов', amount: 12500, days: 2 },
-            ],
-            
-            // Статичные или из листа "Orders" (если это прогноз)
-            forecastDetails: [
-                { name: 'Сеть "У дома"', amount: 5500, change: '+10%', reason: 'Плановая акция' },
-                { name: 'Пекарня "Хлеб"', amount: 4200, change: '+5%', reason: 'Сезон выпечки' },
-            ],
-            
+            debtors: [ { id: 1, name: 'Кафе "Утро"', amount: 45000, days: 5 }, { id: 2, name: 'ИП Смирнов', amount: 12500, days: 2 } ],
+            forecastDetails: [ { name: 'Сеть "У дома"', amount: 5500, change: '+10%', reason: 'Плановая акция' }, { name: 'Пекарня "Хлеб"', amount: 4200, change: '+5%', reason: 'Сезон выпечки' } ],
             shipments: {
-                today: [
-                    { id: 1, name: 'Пекарня "Хлеб"', amount: 3600, price: 39600, status: 'pending' },
-                    { id: 2, name: 'ИП Иванов', amount: 13200, price: 13200, status: 'ready' },
-                ],
-                // Из листа "Orders" (Планы на завтра)
-                tomorrow: {
-                    totalAmount: 7000, // 4500 + 2500
-                    shipmentsCount: 2,
-                    details: [
-                        { name: 'Сеть "У дома"', amount: 4500, address: 'ул. Ленина, 45', defaultPrice: 11.50 },
-                        { name: 'Пекарня "Хлеб"', amount: 2500, address: 'пр. Мира, 12', defaultPrice: 11.00 },
-                    ]
-                }
+                today: [ { id: 1, name: 'Пекарня "Хлеб"', amount: 3600, price: 39600, status: 'pending' }, { id: 2, name: 'ИП Иванов', amount: 13200, price: 13200, status: 'ready' }, { id: 3, name: 'Сеть "У дома"', amount: 5000, price: 57500, status: 'shipped' } ],
+                tomorrow: { totalAmount: 10500, shipmentsCount: 5, details: [ { name: 'Сеть "У дома"', amount: 4500, address: 'ул. Ленина, 45', defaultPrice: 11.50 }, { name: 'Пекарня "Хлеб"', amount: 2500, address: 'пр. Мира, 12', defaultPrice: 11.00 } ] }
             },
-            
-            // Из листа "Clients" (Топ клиенты)
             clients: {
                 total: 45, active: 42, churned: 3, retention: 94,
-                atRisk: [
-                    { id: 101, name: 'Магазин "Продукты"', lastOrderDays: 5, volume: 45000, eggs: 4000, trend: 'down', recommendation: 'Предложить скидку 5% на партию', joinDate: '15.02.2023', totalOrders: 32, totalEggsAllTime: 120000, totalRevenueAllTime: 1200000, totalProfitAllTime: 200000 },
-                ],
-                top: [
-                    // Данные из таблицы Clients (name, total_volume)
-                    { id: 1, name: 'Сеть "У дома"', volume: 5200000, eggs: 22500, trend: 'up', joinDate: '12.03.2023', totalOrders: 145, totalEggsAllTime: 450000, totalRevenueAllTime: 5200000, totalProfitAllTime: 1200000 },
-                    { id: 2, name: 'Пекарня "Хлеб"', volume: 3400000, eggs: 16200, trend: 'stable', joinDate: '10.06.2023', totalOrders: 98, totalEggsAllTime: 310000, totalRevenueAllTime: 3400000, totalProfitAllTime: 850000 },
-                ]
+                atRisk: [ { id: 101, name: 'Магазин "Продукты"', lastOrderDays: 5, volume: 45000, eggs: 4000, trend: 'down', recommendation: 'Предложить скидку 5%', joinDate: '15.02.2023', totalOrders: 32, totalEggsAllTime: 120000, totalRevenueAllTime: 1200000, totalProfitAllTime: 200000 } ],
+                top: [ { id: 1, name: 'Сеть "У дома"', volume: 5200000, eggs: 22500, trend: 'up', joinDate: '12.03.2023', totalOrders: 145, totalRevenueAllTime: 5200000, totalProfitAllTime: 1200000 }, { id: 2, name: 'Пекарня "Хлеб"', volume: 3400000, eggs: 16200, trend: 'stable', joinDate: '10.06.2023', totalOrders: 98, totalEggsAllTime: 310000, totalRevenueAllTime: 3400000, totalProfitAllTime: 850000 } ]
             },
-            history: [
-                { id: 1, date: '14.12.2023', amount: 4500, sum: 51750 },
-                { id: 2, date: '10.12.2023', amount: 4200, sum: 48300 },
-            ],
-            aiRecommendations: [
-                "Клиент 'Магазин Продукты' не заказывал 4 дня. Риск оттока.",
-                "На пятницу прогнозируется всплеск спроса (+20%).",
-            ],
+            history: [ { id: 1, date: '14.12.2023', amount: 4500, sum: 51750 }, { id: 2, date: '10.12.2023', amount: 4200, sum: 48300 } ],
+            aiRecommendations: [ "Клиент 'Магазин Продукты' не заказывал 4 дня.", "На пятницу прогнозируется всплеск спроса." ]
         };
 
-        // --- ⚙️ ВСТАВЬ СЮДА ССЫЛКУ НА N8N (потом) ---
+        // --- ⚙️ ВСТАВЬ СЮДА ССЫЛКУ НА N8N ---
         const API_URL = "https://proshein.com/webhook/data"; 
 
         // --- UI Components ---
-
-        const Card = ({ children, className = "", onClick }) => (
-            <div onClick={onClick} className={`bg-gray-800 rounded-2xl p-4 transition-all duration-200 border border-gray-700/50 ${onClick ? 'active:scale-95 cursor-pointer hover:bg-gray-700' : ''} ${className}`}>
-                {children}
-            </div>
-        );
-
-        const TrendIcon = ({ value, invert = false }) => {
-            const isPositive = value > 0;
-            const isGood = invert ? !isPositive : isPositive;
-            return (
-                <div className={`flex items-center text-xs font-bold ${isGood ? 'text-green-400' : 'text-red-400'}`}>
-                    <Icon name={isPositive ? "trending-up" : "trending-down"} size={14} className="mr-1" />
-                    {Math.abs(value)}%
-                </div>
-            );
-        };
-
+        // ИСПРАВЛЕНИЕ: Добавили проверку на undefined (value ?? 0) или (value || 0)
+        const Card = ({ children, className = "", onClick }) => <div onClick={onClick} className={`bg-gray-800 rounded-2xl p-4 transition-all duration-200 border border-gray-700/50 ${onClick ? 'active:scale-95 cursor-pointer hover:bg-gray-700' : ''} ${className}`}>{children}</div>;
+        const TrendIcon = ({ value }) => <div className={`flex items-center text-xs font-bold ${value > 0 ? 'text-green-400' : 'text-red-400'}`}><Icon name={value > 0 ? "trending-up" : "trending-down"} size={14} className="mr-1" />{Math.abs(value ?? 0)}%</div>;
+        
+        // Исправленный компонент с безопасным toLocaleString
         const ValueDisplay = ({ value, label, subValue, prefix = "", suffix = "" }) => (
             <div className="flex flex-col h-full justify-between">
                 <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">{label}</span>
                 <div className="mt-1">
                     <div className="text-xl font-bold text-white tracking-tight">
-                        {prefix}{value.toLocaleString()}{suffix}
+                        {prefix}{(value ?? 0).toLocaleString()}{suffix}
                     </div>
                     {subValue && <div className="mt-1">{subValue}</div>}
                 </div>
             </div>
         );
 
-        const Header = ({ title, subtitle, onBack }) => (
-            <div className="flex items-center gap-3 mb-6 pt-2">
-                {onBack && (
-                    <button onClick={onBack} className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 active:bg-gray-700 hover:text-white transition-colors">
-                        <Icon name="chevron-left" size={20} />
-                    </button>
-                )}
-                <div className="flex-1">
-                    <h1 className="text-2xl font-black text-white tracking-tight leading-none">{title}</h1>
-                    {subtitle && <p className="text-gray-400 text-xs font-medium mt-1">{subtitle}</p>}
-                </div>
-                {!onBack && (
-                    <div className="bg-gray-800 border border-gray-700 p-2 rounded-full shadow-lg">
-                        <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold shadow-inner">К</div>
-                    </div>
-                )}
-            </div>
-        );
+        const Header = ({ title, subtitle, onBack }) => <div className="flex items-center gap-3 mb-6 pt-2">{onBack && <button onClick={onBack} className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 active:bg-gray-700 hover:text-white"><Icon name="chevron-left" size={20} /></button>}<div className="flex-1"><h1 className="text-2xl font-black text-white tracking-tight leading-none">{title}</h1>{subtitle && <p className="text-gray-400 text-xs font-medium mt-1">{subtitle}</p>}</div>{!onBack && <div className="bg-gray-800 border border-gray-700 p-2 rounded-full shadow-lg"><div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold font-xs">К</div></div>}</div>;
+        const SectionTitle = ({ title, iconName, colorClass = "text-yellow-500" }) => <div className="flex items-center gap-2 mb-3 mt-6 px-1">{iconName && <Icon name={iconName} size={18} className={colorClass} />}<h2 className="text-lg font-bold text-gray-200">{title}</h2></div>;
+        const Toast = ({ message, type }) => { if (!message) return null; return <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-fade-in w-[90%] max-w-sm"><div className="bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">{type === 'success' ? <Icon name="check-circle-2" size={20} className="text-green-500" /> : <Icon name="info" size={20} className="text-blue-500" />}<div className="flex-1 text-sm font-medium">{message}</div></div></div>; };
 
-        const SectionTitle = ({ title, iconName, colorClass = "text-yellow-500" }) => (
-            <div className="flex items-center gap-2 mb-3 mt-6 px-1">
-                {iconName && <Icon name={iconName} size={18} className={colorClass} />}
-                <h2 className="text-lg font-bold text-gray-200">{title}</h2>
-            </div>
-        );
-
-        const Toast = ({ message, type }) => {
-            if (!message) return null;
-            return (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-fade-in w-[90%] max-w-sm">
-                    <div className="bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
-                         {type === 'success' ? <Icon name="check-circle-2" size={20} className="text-green-500" /> : <Icon name="info" size={20} className="text-blue-500" />}
-                         <div className="flex-1 text-sm font-medium">{message}</div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- Main App ---
-
+        // --- MAIN APP ---
         function App() {
             const [activeTab, setActiveTab] = useState('dashboard');
             const [viewMode, setViewMode] = useState('main'); 
             const [selectedClient, setSelectedClient] = useState(null);
-            
-            // Mock Data State
-            const [data, setData] = useState(DEFAULT_DATA);
-
-            const [printing, setPrinting] = useState(false);
-            const [sendingMsg, setSendingMsg] = useState(false);
             const [toast, setToast] = useState({ message: null, type: 'info' });
+            
+            // Данные
+            const [data, setData] = useState(DEFAULT_DATA);
 
             const [shipmentPrices, setShipmentPrices] = useState({});
             const [shipmentQuantities, setShipmentQuantities] = useState({});
             const [printStage, setPrintStage] = useState('idle');
             const [companyName, setCompanyName] = useState('Яйцо Хорошее');
+            const [sendingMsg, setSendingMsg] = useState(false);
+            const [printing, setPrinting] = useState(false);
 
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
-            
-               useEffect(() => {
-                // 1. ЗАГРУЗКА ДАННЫХ ИЗ N8N (Теперь активно!)
+
+            // ЗАГРУЗКА ДАННЫХ ИЗ N8N
+            useEffect(() => {
                 if (API_URL) {
-                    console.log("🚀 Начинаем загрузку из:", API_URL);
                     fetch(API_URL)
                         .then(r => {
-                            if (!r.ok) throw new Error("Ошибка сети: " + r.status);
+                            if (!r.ok) throw new Error("HTTP error " + r.status);
                             return r.json();
                         })
                         .then(newData => {
-                            console.log("✅ Данные получены:", newData);
-                            // Объединяем старые данные с новыми
+                            // Аккуратно объединяем, чтобы не потерять вложенность, если n8n присылает не всё
+                            // Но проще всего просто использовать безопасный вывод в рендере
                             setData(prev => ({...DEFAULT_DATA, ...newData}));
-                            // Если есть Toast, можно показать, что данные обновились
-                            // setToast({ message: "Данные обновлены", type: 'success' });
-                            // Скрываем тост через 3 сек
-                            // setTimeout(() => setToast({ message: null, type: 'info' }), 3000);
+                            
+                            // Убираем лоадер
+                            const loader = document.getElementById('loader');
+                            if(loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }
                         })
                         .catch(e => {
-                            console.error("❌ Ошибка получения данных:", e);
+                            console.error("Ошибка загрузки:", e);
+                            const loader = document.getElementById('loader');
+                            if(loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }
                         });
+                } else {
+                    const loader = document.getElementById('loader');
+                    if(loader) loader.style.display = 'none';
                 }
-
-                // 2. Инициализация Telegram
+                
                 const tg = window.Telegram?.WebApp;
                 if (tg && tg.initDataUnsafe?.start_param) {
                     const rawName = tg.initDataUnsafe.start_param;
@@ -314,10 +218,9 @@
             }, []);
 
             useEffect(() => {
-                if (viewMode === 'shipments_tomorrow') {
+                if (viewMode === 'shipments_tomorrow' && data.shipments?.tomorrow?.details) {
                     const initialPrices = {};
                     const initialQuantities = {};
-                    // Используем данные из data (которая пока DEFAULT_DATA)
                     data.shipments.tomorrow.details.forEach((item, idx) => {
                         initialPrices[idx] = item.defaultPrice;
                         initialQuantities[idx] = item.amount;
@@ -327,6 +230,7 @@
                 }
             }, [viewMode, data]);
 
+            // --- Handlers ---
             const showNotification = (msg, type = 'success') => {
                 if (window.Telegram?.WebApp?.showPopup && window.Telegram.WebApp.isVersionAtLeast && window.Telegram.WebApp.isVersionAtLeast('6.2')) {
                     window.Telegram.WebApp.showPopup({ title: type === 'success' ? 'Готово' : 'Инфо', message: msg, buttons: [{ type: 'ok' }] });
@@ -341,8 +245,8 @@
             const handleComplexPrint = () => { if (printStage !== 'idle') return; setPrintStage('sending'); setTimeout(() => setPrintStage('printing'), 2000); setTimeout(() => setPrintStage('sent'), 4500); setTimeout(() => { setPrintStage('idle'); showNotification("Накладные отправлены в чат!"); }, 6500); };
             const handlePrint = () => { setPrinting(true); setTimeout(() => { setPrinting(false); showNotification("Задача отправлена в 1С!"); }, 1500); };
             const handleConfirmDemand = () => { setSendingMsg(true); setTimeout(() => { setSendingMsg(false); showNotification("Рассылка отправлена!"); }, 1500); };
-            const handleMercury = () => showNotification("Запрос в Меркурий отправлен! ВСД гасятся.", "info");
-            const handleRemindDebt = (name) => showNotification(`Напоминание об оплате отправлено ${name}`, "success");
+            const handleMercury = () => showNotification("Запрос в Меркурий отправлен!", "info");
+            const handleRemindDebt = (name) => showNotification(`Напоминание отправлено ${name}`, "success");
             const handleSendDoc = (date) => showNotification(`Документы за ${date} отправлены!`, "success");
 
             const openForecastDetails = () => setViewMode('forecast');
@@ -353,16 +257,11 @@
             const openClientDetails = (client) => { setSelectedClient(client); setViewMode('client_detail'); };
             
             const goBack = () => {
-                if (viewMode === 'client_history') {
-                    setViewMode('client_detail');
-                } else {
-                    setViewMode('main');
-                    setSelectedClient(null);
-                    setPrintStage('idle');
-                }
+                if (viewMode === 'client_history') setViewMode('client_detail');
+                else { setViewMode('main'); setSelectedClient(null); setPrintStage('idle'); }
             };
 
-            // --- Renders ---
+            // --- Renders (С безопасным выводом) ---
 
             const renderWarehouseDetails = () => (
                 <div className="animate-slide-in pb-20">
@@ -376,14 +275,8 @@
                     </div>
                     <SectionTitle title="Тара и упаковка" iconName="package" />
                     <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                        <div className="flex justify-between items-center border-b border-gray-700 pb-3 mb-3">
-                            <span className="text-gray-400">Коробки (гофра)</span>
-                            <span className="font-bold text-lg">{data.summary.warehouse.packaging.boxes} шт</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-400">Прокладки (бугор)</span>
-                            <span className="font-bold text-lg">{data.summary.warehouse.packaging.trays} шт</span>
-                        </div>
+                        <div className="flex justify-between border-b border-gray-700 pb-3 mb-3"><span className="text-gray-400">Коробки</span><span className="font-bold text-lg">{(data.summary.warehouse.packaging.boxes || 0).toLocaleString()} шт</span></div>
+                        <div className="flex justify-between"><span className="text-gray-400">Прокладки</span><span className="font-bold text-lg">{(data.summary.warehouse.packaging.trays || 0).toLocaleString()} шт</span></div>
                     </div>
                 </div>
             );
@@ -406,25 +299,17 @@
                     <div className="space-y-3 mb-6">
                         {data.summary.soldDetails.categories.map((cat, idx) => (
                             <div key={idx} className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                                <div className="flex justify-between mb-2">
-                                    <span className="font-bold text-white">Яйцо {cat.name}</span>
-                                    <span className="font-mono">{cat.amount.toLocaleString()} шт</span>
-                                </div>
-                                <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-                                    <div className="bg-yellow-500 h-full" style={{ width: `${cat.percent}%` }}></div>
-                                </div>
+                                <div className="flex justify-between mb-2"><span className="font-bold text-white">Яйцо {cat.name}</span><span className="font-mono">{(cat.amount || 0).toLocaleString()} шт</span></div>
+                                <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden"><div className="bg-yellow-500 h-full" style={{ width: `${cat.percent}%` }}></div></div>
                             </div>
                         ))}
                     </div>
-                    <SectionTitle title="Топ покупателей (Месяц)" iconName="users" />
+                    <SectionTitle title="Топ покупателей" iconName="users" />
                     <div className="space-y-2">
                         {data.clients.top.map((client, idx) => (
                             <div key={idx} className="bg-gray-800 p-4 rounded-xl flex items-center justify-between border border-gray-700">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold">#{idx + 1}</div>
-                                    <div className="font-bold text-sm text-white">{client.name}</div>
-                                </div>
-                                <div className="text-xs text-gray-400">{client.eggs.toLocaleString()} шт</div>
+                                <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold">#{idx + 1}</div><div className="font-bold text-sm text-white">{client.name}</div></div>
+                                <div className="text-xs text-gray-400">{(client.eggs || 0).toLocaleString()} шт</div>
                             </div>
                         ))}
                     </div>
@@ -433,24 +318,16 @@
 
             const renderForecastDetails = () => (
                 <div className="animate-slide-in pb-20">
-                    <Header title="Прогноз закупки" subtitle="Детализация на следующую неделю" onBack={goBack} />
+                    <Header title="Прогноз закупки" subtitle="Детализация" onBack={goBack} />
                     <div className="bg-indigo-900/20 border border-indigo-500/30 p-4 rounded-2xl mb-6 text-center">
-                        <span className="text-indigo-300 text-xs font-bold uppercase">Общий объем</span>
-                        <div className="text-4xl font-bold text-white mt-1">{data.summary.forecastDemand.toLocaleString()}</div>
-                        <div className="text-indigo-200/60 text-xs mt-1">яиц нужно закупить</div>
-                        <div className="mt-4 pt-4 border-t border-indigo-500/30">
-                            <span className="text-indigo-300 text-xs font-bold uppercase">Бюджет закупки</span>
-                            <div className="text-2xl font-bold text-green-400 mt-1">~ {data.summary.forecastCost.toLocaleString()} ₽</div>
-                        </div>
+                        <span className="text-indigo-300 text-xs font-bold uppercase">Общий объем</span><div className="text-4xl font-bold text-white mt-1">{(data.summary.forecastDemand || 0).toLocaleString()}</div><div className="text-indigo-200/60 text-xs mt-1">яиц нужно закупить</div>
+                        <div className="mt-4 pt-4 border-t border-indigo-500/30"><span className="text-indigo-300 text-xs font-bold uppercase">Бюджет закупки</span><div className="text-2xl font-bold text-green-400 mt-1">~ {(data.summary.forecastCost || 0).toLocaleString()} ₽</div></div>
                     </div>
                     <div className="space-y-3">
                         {data.forecastDetails.map((item, idx) => (
                             <div key={idx} className="bg-gray-800 p-4 rounded-xl flex justify-between items-center border border-gray-700">
                                 <div><div className="font-bold text-white text-sm">{item.name}</div><div className="text-[10px] text-gray-400 mt-1">{item.reason}</div></div>
-                                <div className="text-right">
-                                    <div className="text-white font-mono font-bold">{item.amount}</div>
-                                    <div className={`text-[10px] ${item.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>{item.change}</div>
-                                </div>
+                                <div className="text-right"><div className="text-white font-mono font-bold">{item.amount}</div><div className={`text-[10px] ${item.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>{item.change}</div></div>
                             </div>
                         ))}
                     </div>
@@ -461,17 +338,11 @@
                 <div className="animate-slide-in pb-24">
                     <Header title="План на завтра" subtitle="Установка цен и количества" onBack={goBack} />
                     <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-2xl mb-6 flex justify-between items-center">
-                        <div>
-                            <span className="text-blue-300 text-xs font-bold uppercase">Всего к отгрузке</span>
-                            <div className="text-3xl font-bold text-white mt-1">{data.shipments.tomorrow.totalAmount.toLocaleString()} <span className="text-sm font-normal text-gray-400">шт</span></div>
-                        </div>
-                        <div className="text-right">
-                            <span className="text-blue-300 text-xs font-bold uppercase">Клиентов</span>
-                            <div className="text-2xl font-bold text-white mt-1">{data.shipments.tomorrow.shipmentsCount}</div>
-                        </div>
+                        <div><span className="text-blue-300 text-xs font-bold uppercase">Всего к отгрузке</span><div className="text-3xl font-bold text-white mt-1">{(data.shipments?.tomorrow?.totalAmount || 0).toLocaleString()} <span className="text-sm font-normal text-gray-400">шт</span></div></div>
+                        <div className="text-right"><span className="text-blue-300 text-xs font-bold uppercase">Клиентов</span><div className="text-2xl font-bold text-white mt-1">{data.shipments?.tomorrow?.shipmentsCount || 0}</div></div>
                     </div>
                     <div className="space-y-3 mb-24">
-                        {data.shipments.tomorrow.details.map((item, idx) => {
+                        {data.shipments?.tomorrow?.details.map((item, idx) => {
                             const qty = shipmentQuantities[idx] || 0;
                             const price = shipmentPrices[idx] || 0;
                             const total = Math.round(qty * price);
@@ -482,21 +353,11 @@
                                             <div className="font-bold text-white text-sm">{item.name}</div>
                                             <div className="flex items-center gap-1 text-gray-400 text-[10px] mt-1"><Icon name="map-pin" size={10} /> {item.address}</div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-xs text-green-400 font-bold mb-1">~ {total.toLocaleString()} ₽</div>
-                                        </div>
+                                        <div className="text-right"><div className="text-xs text-green-400 font-bold mb-1">~ {total.toLocaleString()} ₽</div></div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <div className="flex-1 flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-gray-700/50">
-                                            <div className="text-gray-500 text-[10px] font-bold uppercase">Кол-во:</div>
-                                            <input type="number" value={shipmentQuantities[idx] || ''} onChange={(e) => handleQuantityChange(idx, e.target.value)} className="bg-transparent text-white font-mono font-bold text-sm outline-none w-full text-right" />
-                                            <div className="text-gray-500 text-xs">шт</div>
-                                        </div>
-                                        <div className="flex-1 flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-gray-700/50">
-                                            <div className="text-gray-500 text-[10px] font-bold uppercase">Цена:</div>
-                                            <input type="number" step="0.1" value={shipmentPrices[idx] || ''} onChange={(e) => handlePriceChange(idx, e.target.value)} className="bg-transparent text-white font-mono font-bold text-sm outline-none w-full text-right" />
-                                            <div className="text-gray-500 text-xs">₽</div>
-                                        </div>
+                                        <div className="flex-1 flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-gray-700/50"><div className="text-gray-500 text-[10px] font-bold uppercase">Кол-во:</div><input type="number" value={shipmentQuantities[idx] || ''} onChange={(e) => handleQuantityChange(idx, e.target.value)} className="bg-transparent text-white font-mono font-bold text-sm outline-none w-full text-right" /><div className="text-gray-500 text-xs">шт</div></div>
+                                        <div className="flex-1 flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-gray-700/50"><div className="text-gray-500 text-[10px] font-bold uppercase">Цена:</div><input type="number" step="0.1" value={shipmentPrices[idx] || ''} onChange={(e) => handlePriceChange(idx, e.target.value)} className="bg-transparent text-white font-mono font-bold text-sm outline-none w-full text-right" /><div className="text-gray-500 text-xs">₽</div></div>
                                     </div>
                                 </div>
                             );
@@ -506,8 +367,8 @@
                         <div className="max-w-md mx-auto">
                             <button onClick={handleComplexPrint} disabled={printStage !== 'idle'} className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-bold text-sm transition-all shadow-xl ${printStage === 'sent' ? 'bg-green-600 text-white' : printStage !== 'idle' ? 'bg-gray-700 text-gray-300' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/40 active:scale-95'}`}>
                                 {printStage === 'idle' && <><Icon name="printer" size={18} /> Распечатать накладные</>}
-                                {printStage === 'sending' && <><Icon name="loader-2" size={18} className="animate-spin" /> Отправляем в 1С...</>}
-                                {printStage === 'printing' && <><Icon name="file-text" size={18} className="animate-pulse" /> Формируем файлы...</>}
+                                {printStage === 'sending' && <><Icon name="loader-2" size={18} className="animate-spin" /> Отправляем...</>}
+                                {printStage === 'printing' && <><Icon name="file-text" size={18} className="animate-pulse" /> Формируем...</>}
                                 {printStage === 'sent' && <><Icon name="check-circle-2" size={18} /> Отправили в чат!</>}
                             </button>
                         </div>
@@ -521,10 +382,7 @@
                     <div className="space-y-3">
                         {data.history.map((order) => (
                             <div key={order.id} className="bg-gray-800 p-4 rounded-xl flex justify-between items-center border border-gray-700">
-                                <div>
-                                    <div className="font-bold text-white text-sm">{order.date}</div>
-                                    <div className="text-xs text-gray-400 mt-1">{order.amount} шт</div>
-                                </div>
+                                <div><div className="font-bold text-white text-sm">{order.date}</div><div className="text-xs text-gray-400 mt-1">{order.amount} шт</div></div>
                                 <div className="flex items-center gap-3">
                                     <div className="text-right font-bold text-white">{order.sum.toLocaleString()} ₽</div>
                                     <button onClick={() => handleSendDoc(order.date)} className="bg-blue-600/20 text-blue-400 p-2 rounded-lg active:scale-95 transition-all"><Icon name="file-text" size={16} /></button>
@@ -552,8 +410,8 @@
                             <Card className="col-span-2 bg-gray-800">
                                 <div className="flex justify-between items-center mb-2"><span className="text-gray-400 text-[10px] font-bold uppercase">Финансы (Total)</span><Icon name="wallet" size={16} className="text-green-500" /></div>
                                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-700">
-                                    <div><div className="text-xs text-gray-500">Оборот</div><div className="text-white font-bold text-lg">{selectedClient.totalRevenueAllTime.toLocaleString()} ₽</div></div>
-                                    <div><div className="text-xs text-gray-500">Чистая прибыль</div><div className="text-green-400 font-bold text-lg">+{selectedClient.totalProfitAllTime.toLocaleString()} ₽</div></div>
+                                    <div><div className="text-xs text-gray-500">Оборот</div><div className="text-white font-bold text-lg">{(selectedClient.totalRevenueAllTime || 0).toLocaleString()} ₽</div></div>
+                                    <div><div className="text-xs text-gray-500">Чистая прибыль</div><div className="text-green-400 font-bold text-lg">+{(selectedClient.totalProfitAllTime || 0).toLocaleString()} ₽</div></div>
                                 </div>
                             </Card>
                         </div>
@@ -573,14 +431,14 @@
                     </div>
                     <Card onClick={openSoldDetails} className="bg-gray-800 relative overflow-hidden cursor-pointer active:scale-95 transition-all">
                         <div className="relative z-10 flex justify-between items-center">
-                            <div><span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Продано яиц (Месяц)</span><div className="text-3xl font-bold text-white mt-1">{data.summary.soldThisMonth.toLocaleString()} <span className="text-sm text-gray-500 font-normal">шт</span></div></div>
+                            <div><span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Продано яиц (Месяц)</span><div className="text-3xl font-bold text-white mt-1">{(data.summary.soldThisMonth || 0).toLocaleString()} <span className="text-sm text-gray-500 font-normal">шт</span></div></div>
                             <div className="bg-yellow-500/10 p-2 rounded-lg"><Icon name="layers" size={24} className="text-yellow-500" /></div>
                         </div>
                         <div className="mt-2 flex items-center gap-2"><TrendIcon value={data.trends.sold} /><span className="text-[10px] text-gray-500">к прошлому месяцу</span></div>
                     </Card>
                     <Card onClick={openForecastDetails} className="col-span-2 bg-gradient-to-br from-indigo-900 to-gray-900 border border-indigo-500/30 cursor-pointer">
                         <div className="flex justify-between items-start">
-                            <div><span className="text-indigo-300 text-xs font-bold uppercase flex items-center gap-1"><Icon name="brain" size={12} /> Прогноз закупки (Неделя) <Icon name="arrow-right" size={12} /></span><h3 className="text-4xl font-bold text-white mt-2">{data.summary.forecastDemand.toLocaleString()} шт.</h3></div>
+                            <div><span className="text-indigo-300 text-xs font-bold uppercase flex items-center gap-1"><Icon name="brain" size={12} /> Прогноз закупки (Неделя) <Icon name="arrow-right" size={12} /></span><h3 className="text-4xl font-bold text-white mt-2">{(data.summary.forecastDemand || 0).toLocaleString()} шт.</h3></div>
                             <div className="text-right bg-indigo-500/20 px-2 py-1 rounded"><div className="text-[10px] text-indigo-200 uppercase">Спрос</div><div className="text-green-400 font-bold">+15%</div></div>
                         </div>
                         <div className="mt-3 bg-black/20 p-2 rounded-lg border border-white/5 flex gap-2 items-start"><Icon name="info" size={14} className="text-indigo-300 shrink-0 mt-0.5" /><p className="text-xs text-indigo-100/80 leading-relaxed">{data.summary.forecastExplanation}</p></div>
@@ -617,15 +475,15 @@
                                 <div><div className="font-bold text-white text-sm">{item.name}</div><div className="text-xs text-gray-400 mt-1 flex items-center gap-1"><Icon name="package" size={12} /> {item.amount} яиц</div></div>
                                 <div className="text-right">
                                     <div className="bg-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold uppercase mb-1">{item.status === 'shipped' ? 'Отгружено' : 'В сборке'}</div>
-                                    <div className="text-xs font-bold text-gray-300">{item.price.toLocaleString()} ₽</div>
+                                    <div className="text-xs font-bold text-gray-300">{(item.price || 0).toLocaleString()} ₽</div>
                                 </div>
                             </div>
                         ))}
                     </div>
                     <div onClick={openTomorrowShipments} className="p-5 bg-gray-800 rounded-xl mt-6 border border-gray-700 active:scale-[0.98] cursor-pointer hover:border-gray-500 transition-all group">
                         <div className="flex justify-between items-center mb-4">
-                            <div><span className="text-gray-400 text-xs font-bold uppercase group-hover:text-gray-200 flex items-center gap-1">План на завтра <Icon name="arrow-right" size={12} /></span><div className="text-white font-bold text-xl mt-1">{data.shipments.tomorrow.totalAmount.toLocaleString()} шт.</div></div>
-                            <div className="text-right"><span className="text-gray-400 text-xs font-bold uppercase">Отгрузок</span><div className="text-white font-bold text-xl mt-1">{data.shipments.tomorrow.shipmentsCount}</div></div>
+                            <div><span className="text-gray-400 text-xs font-bold uppercase group-hover:text-gray-200 flex items-center gap-1">План на завтра <Icon name="arrow-right" size={12} /></span><div className="text-white font-bold text-xl mt-1">{(data.shipments?.tomorrow?.totalAmount || 0).toLocaleString()} шт.</div></div>
+                            <div className="text-right"><span className="text-gray-400 text-xs font-bold uppercase">Отгрузок</span><div className="text-white font-bold text-xl mt-1">{data.shipments?.tomorrow?.shipmentsCount || 0}</div></div>
                         </div>
                         <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden mb-4"><div className="bg-blue-500 h-full w-[45%]"></div></div>
                         <button onClick={(e) => { e.stopPropagation(); handleConfirmDemand(); }} disabled={sendingMsg} className="w-full py-3 rounded-lg flex items-center justify-center gap-2 font-bold text-sm transition-all bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg">
@@ -667,9 +525,7 @@
                             <div className="space-y-2">
                                 {data.clients.atRisk.map((client, idx) => (
                                     <div key={`risk-${idx}`} onClick={() => openClientDetails(client)} className="bg-gray-800/80 border border-red-500/30 p-4 rounded-xl relative overflow-hidden active:scale-95 transition-all cursor-pointer">
-                                        <div className="absolute top-0 right-0 p-2">
-                                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                        </div>
+                                        <div className="absolute top-0 right-0 p-2"><div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div></div>
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
                                                 <div className="font-bold text-white text-sm">{client.name}</div>
@@ -744,7 +600,4 @@
         root.render(<App />);
     </script>
 </body>
-
 </html>
-
-
