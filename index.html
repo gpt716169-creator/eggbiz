@@ -117,7 +117,7 @@
         const DEFAULT_DATA = {
             summary: {
                 netIncome: 450000, revenue: 1200000, soldThisMonth: 108500, eggBalance: 12500,
-                forecastDemand: 14200, forecastCost: 120700, forecastExplanation: "База прошлого года + Сезонный рост",
+                forecastDemand: 14200, forecastCost: 120700, forecastExplanation: "База прошлого года (12,100) + Сезонный рост (2,100)",
                 avgCost: 8.5, avgPrice: 11.2,
                 warehouse: { c0: 4500, c1: 5200, c2: 1800, sv: 800, dirty: 200, packaging: { boxes: 120, trays: 450 } },
                 incomeDetails: { today: 18500, week: 124000, month: 450000 },
@@ -141,25 +141,12 @@
 
         // --- ⚙️ ВСТАВЬ СЮДА ССЫЛКУ НА N8N ---
         const API_URL = "https://proshein.com/webhook/data"; 
+        const SEND_ORDER_URL = "https://proshein.com/webhook/send-order";
 
         // --- UI Components ---
-        // ИСПРАВЛЕНИЕ: Добавили проверку на undefined (value ?? 0) или (value || 0)
         const Card = ({ children, className = "", onClick }) => <div onClick={onClick} className={`bg-gray-800 rounded-2xl p-4 transition-all duration-200 border border-gray-700/50 ${onClick ? 'active:scale-95 cursor-pointer hover:bg-gray-700' : ''} ${className}`}>{children}</div>;
         const TrendIcon = ({ value }) => <div className={`flex items-center text-xs font-bold ${value > 0 ? 'text-green-400' : 'text-red-400'}`}><Icon name={value > 0 ? "trending-up" : "trending-down"} size={14} className="mr-1" />{Math.abs(value ?? 0)}%</div>;
-        
-        // Исправленный компонент с безопасным toLocaleString
-        const ValueDisplay = ({ value, label, subValue, prefix = "", suffix = "" }) => (
-            <div className="flex flex-col h-full justify-between">
-                <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">{label}</span>
-                <div className="mt-1">
-                    <div className="text-xl font-bold text-white tracking-tight">
-                        {prefix}{(value ?? 0).toLocaleString()}{suffix}
-                    </div>
-                    {subValue && <div className="mt-1">{subValue}</div>}
-                </div>
-            </div>
-        );
-
+        const ValueDisplay = ({ value, label, subValue, prefix = "", suffix = "" }) => <div className="flex flex-col h-full justify-between"><span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">{label}</span><div className="mt-1"><div className="text-xl font-bold text-white tracking-tight">{prefix}{(value ?? 0).toLocaleString()}{suffix}</div>{subValue && <div className="mt-1">{subValue}</div>}</div></div>;
         const Header = ({ title, subtitle, onBack }) => <div className="flex items-center gap-3 mb-6 pt-2">{onBack && <button onClick={onBack} className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 active:bg-gray-700 hover:text-white"><Icon name="chevron-left" size={20} /></button>}<div className="flex-1"><h1 className="text-2xl font-black text-white tracking-tight leading-none">{title}</h1>{subtitle && <p className="text-gray-400 text-xs font-medium mt-1">{subtitle}</p>}</div>{!onBack && <div className="bg-gray-800 border border-gray-700 p-2 rounded-full shadow-lg"><div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold font-xs">К</div></div>}</div>;
         const SectionTitle = ({ title, iconName, colorClass = "text-yellow-500" }) => <div className="flex items-center gap-2 mb-3 mt-6 px-1">{iconName && <Icon name={iconName} size={18} className={colorClass} />}<h2 className="text-lg font-bold text-gray-200">{title}</h2></div>;
         const Toast = ({ message, type }) => { if (!message) return null; return <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-fade-in w-[90%] max-w-sm"><div className="bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">{type === 'success' ? <Icon name="check-circle-2" size={20} className="text-green-500" /> : <Icon name="info" size={20} className="text-blue-500" />}<div className="flex-1 text-sm font-medium">{message}</div></div></div>; };
@@ -183,47 +170,37 @@
 
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
 
-            // ЗАГРУЗКА ДАННЫХ ИЗ N8N (С АВТО-ОБНОВЛЕНИЕМ)
+            // ЗАГРУЗКА ДАННЫХ ИЗ N8N (АВТОМАТИЧЕСКАЯ)
             useEffect(() => {
-                // Функция загрузки данных
                 const fetchData = () => {
-                    if (!API_URL) return;
-                    
-                    // console.log("🔄 Обновляем данные..."); // Можно раскомментировать для проверки
-                    fetch(API_URL)
-                        .then(r => {
-                            if (!r.ok) throw new Error("HTTP error " + r.status);
-                            return r.json();
-                        })
-                        .then(newData => {
-                            // Обновляем данные тихо, без лоадера, чтобы не мелькало
-                            setData(prev => ({...DEFAULT_DATA, ...newData}));
-                            
-                            // Убираем стартовый лоадер, если он еще висит
-                            const loader = document.getElementById('loader');
-                            if(loader && loader.style.display !== 'none') { 
-                                loader.style.opacity = '0'; 
-                                setTimeout(() => loader.style.display = 'none', 500); 
-                            }
-                        })
-                        .catch(e => console.error("Ошибка фонового обновления:", e));
+                    if (API_URL) {
+                        fetch(API_URL)
+                            .then(r => {
+                                if (!r.ok) throw new Error("HTTP error " + r.status);
+                                return r.json();
+                            })
+                            .then(newData => {
+                                setData(prev => ({...DEFAULT_DATA, ...newData}));
+                                const loader = document.getElementById('loader');
+                                if(loader && loader.style.display !== 'none') { 
+                                    loader.style.opacity = '0'; 
+                                    setTimeout(() => loader.style.display = 'none', 500); 
+                                }
+                            })
+                            .catch(e => console.error("Ошибка загрузки:", e));
+                    }
                 };
 
-                // 1. Загружаем сразу при открытии
-                fetchData();
+                fetchData(); 
+                const interval = setInterval(fetchData, 15000); 
 
-                // 2. Ставим таймер на каждые 15 секунд (15000 мс)
-                const intervalId = setInterval(fetchData, 15000);
-
-                // 3. Инициализация Telegram (Название компании)
                 const tg = window.Telegram?.WebApp;
                 if (tg && tg.initDataUnsafe?.start_param) {
                     const rawName = tg.initDataUnsafe.start_param;
                     if (rawName.startsWith('name_')) setCompanyName(rawName.replace('name_', '').replace(/_/g, ' '));
                 }
-
-                // 4. Очистка таймера при закрытии (чтобы не грузить телефон)
-                return () => clearInterval(intervalId);
+                
+                return () => clearInterval(interval);
             }, []);
 
             useEffect(() => {
@@ -251,7 +228,38 @@
 
             const handlePriceChange = (idx, value) => setShipmentPrices(prev => ({ ...prev, [idx]: value }));
             const handleQuantityChange = (idx, value) => setShipmentQuantities(prev => ({ ...prev, [idx]: value }));
-            const handleComplexPrint = () => { if (printStage !== 'idle') return; setPrintStage('sending'); setTimeout(() => setPrintStage('printing'), 2000); setTimeout(() => setPrintStage('sent'), 4500); setTimeout(() => { setPrintStage('idle'); showNotification("Накладные отправлены в чат!"); }, 6500); };
+            
+            const handleSendToDriver = () => { 
+                if (printStage !== 'idle') return; 
+                setPrintStage('sending'); 
+                
+                // Реальная отправка данных в n8n
+                fetch(SEND_ORDER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        prices: shipmentPrices, 
+                        quantities: shipmentQuantities 
+                    })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        setPrintStage('sent');
+                        setTimeout(() => { 
+                            setPrintStage('idle'); 
+                            showNotification("Маршрутный лист улетел водителю!"); 
+                        }, 2000);
+                    } else {
+                        throw new Error('Ошибка отправки');
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    setPrintStage('idle');
+                    showNotification("Ошибка отправки! Проверь интернет.", "error");
+                });
+            };
+            
             const handlePrint = () => { setPrinting(true); setTimeout(() => { setPrinting(false); showNotification("Задача отправлена в 1С!"); }, 1500); };
             const handleConfirmDemand = () => { setSendingMsg(true); setTimeout(() => { setSendingMsg(false); showNotification("Рассылка отправлена!"); }, 1500); };
             const handleMercury = () => showNotification("Запрос в Меркурий отправлен!", "info");
@@ -270,7 +278,7 @@
                 else { setViewMode('main'); setSelectedClient(null); setPrintStage('idle'); }
             };
 
-            // --- Renders (С безопасным выводом) ---
+            // --- Renders ---
 
             const renderWarehouseDetails = () => (
                 <div className="animate-slide-in pb-20">
@@ -374,12 +382,13 @@
                     </div>
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0F1115] via-[#0F1115] to-transparent z-50">
                         <div className="max-w-md mx-auto">
-                            <button onClick={handleComplexPrint} disabled={printStage !== 'idle'} className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-bold text-sm transition-all shadow-xl ${printStage === 'sent' ? 'bg-green-600 text-white' : printStage !== 'idle' ? 'bg-gray-700 text-gray-300' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/40 active:scale-95'}`}>
-                                {printStage === 'idle' && <><Icon name="printer" size={18} /> Распечатать накладные</>}
-                                {printStage === 'sending' && <><Icon name="loader-2" size={18} className="animate-spin" /> Отправляем...</>}
-                                {printStage === 'printing' && <><Icon name="file-text" size={18} className="animate-pulse" /> Формируем...</>}
-                                {printStage === 'sent' && <><Icon name="check-circle-2" size={18} /> Отправили в чат!</>}
+                            <button onClick={handleSendToDriver} disabled={printStage !== 'idle'} className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-bold text-sm transition-all shadow-xl ${printStage === 'sent' ? 'bg-green-600 text-white' : printStage !== 'idle' ? 'bg-gray-700 text-gray-300' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/40 active:scale-95'}`}>
+                                {printStage === 'idle' && <><Icon name="send" size={18} /> Отправить водителю</>}
+                                {printStage === 'sending' && <><Icon name="loader-2" size={18} className="animate-spin" /> Формируем маршрут...</>}
+                                {printStage === 'printing' && <><Icon name="loader-2" size={18} className="animate-spin" /> Формируем...</>}
+                                {printStage === 'sent' && <><Icon name="check-circle-2" size={18} /> Ушло в Telegram!</>}
                             </button>
+                            <p className="text-center text-[10px] text-gray-500 mt-2">Цены и кол-во из полей выше уйдут в чат водителю</p>
                         </div>
                     </div>
                 </div>
@@ -406,7 +415,7 @@
                 if (!selectedClient) return null;
                 return (
                     <div className="animate-slide-in pb-20">
-                        <Header title={selectedClient.name} subtitle="Карточка клиента" onBack={goBack} />
+                        <Header title="Карточка клиента" subtitle={selectedClient.name} onBack={goBack} />
                         <div className="grid grid-cols-2 gap-3 mb-6">
                             <Card className="col-span-2 bg-gradient-to-r from-gray-800 to-gray-800 border-l-4 border-yellow-500">
                                 <div className="flex items-center gap-3">
@@ -472,6 +481,7 @@
                 </div>
             );
 
+            // ИСПРАВЛЕНИЕ: Добавляем потерянную функцию renderOperations
             const renderOperations = () => (
                 <div className="animate-slide-in space-y-4 pb-20">
                     <button onClick={handleMercury} className="w-full mercury-btn py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-white shadow-lg active:scale-95 transition-all">
@@ -610,4 +620,3 @@
     </script>
 </body>
 </html>
-
