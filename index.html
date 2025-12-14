@@ -183,38 +183,47 @@
 
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
 
-            // ЗАГРУЗКА ДАННЫХ ИЗ N8N
+            // ЗАГРУЗКА ДАННЫХ ИЗ N8N (С АВТО-ОБНОВЛЕНИЕМ)
             useEffect(() => {
-                if (API_URL) {
+                // Функция загрузки данных
+                const fetchData = () => {
+                    if (!API_URL) return;
+                    
+                    // console.log("🔄 Обновляем данные..."); // Можно раскомментировать для проверки
                     fetch(API_URL)
                         .then(r => {
                             if (!r.ok) throw new Error("HTTP error " + r.status);
                             return r.json();
                         })
                         .then(newData => {
-                            // Аккуратно объединяем, чтобы не потерять вложенность, если n8n присылает не всё
-                            // Но проще всего просто использовать безопасный вывод в рендере
+                            // Обновляем данные тихо, без лоадера, чтобы не мелькало
                             setData(prev => ({...DEFAULT_DATA, ...newData}));
                             
-                            // Убираем лоадер
+                            // Убираем стартовый лоадер, если он еще висит
                             const loader = document.getElementById('loader');
-                            if(loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }
+                            if(loader && loader.style.display !== 'none') { 
+                                loader.style.opacity = '0'; 
+                                setTimeout(() => loader.style.display = 'none', 500); 
+                            }
                         })
-                        .catch(e => {
-                            console.error("Ошибка загрузки:", e);
-                            const loader = document.getElementById('loader');
-                            if(loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }
-                        });
-                } else {
-                    const loader = document.getElementById('loader');
-                    if(loader) loader.style.display = 'none';
-                }
-                
+                        .catch(e => console.error("Ошибка фонового обновления:", e));
+                };
+
+                // 1. Загружаем сразу при открытии
+                fetchData();
+
+                // 2. Ставим таймер на каждые 15 секунд (15000 мс)
+                const intervalId = setInterval(fetchData, 15000);
+
+                // 3. Инициализация Telegram (Название компании)
                 const tg = window.Telegram?.WebApp;
                 if (tg && tg.initDataUnsafe?.start_param) {
                     const rawName = tg.initDataUnsafe.start_param;
                     if (rawName.startsWith('name_')) setCompanyName(rawName.replace('name_', '').replace(/_/g, ' '));
                 }
+
+                // 4. Очистка таймера при закрытии (чтобы не грузить телефон)
+                return () => clearInterval(intervalId);
             }, []);
 
             useEffect(() => {
@@ -601,3 +610,4 @@
     </script>
 </body>
 </html>
+
