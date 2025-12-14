@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Яйцо Хорошее</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React и ReactDOM (Cloudflare CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+    
+    <!-- Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js" crossorigin="anonymous"></script>
+    
+    <!-- Telegram WebApp -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Иконки (через jsdelivr) -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.1/dist/umd/lucide.min.js"></script>
+
+    <style>
+        body { 
+            background-color: #0F1115; 
+            -webkit-tap-highlight-color: transparent;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        .animate-slide-in { animation: slideInRight 0.3s ease-out; }
+        
+        #error-logger {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; color: #ff5555; z-index: 9999; padding: 20px;
+            font-family: monospace; font-size: 12px; overflow: auto; white-space: pre-wrap;
+        }
+        
+        .mercury-btn { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <div id="error-logger"></div>
+
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const logger = document.getElementById('error-logger');
+            if (message.includes('ResizeObserver')) return;
+            logger.style.display = 'block';
+            logger.innerHTML += `❌ ОШИБКА:\n${message}\nСтрока: ${lineno}\n\n`;
+        };
+        
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            try { window.Telegram.WebApp.expand(); } catch(e) {}
+        }
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- ВСТРОЕННЫЕ ИКОНКИ ---
+        const ICON_PATHS = {
+            'trending-up': '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline>',
+            'trending-down': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline>',
+            'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+            'package': '<path d="m16.5 9.4-9-5.19"></path><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.27 6.96 12 12.01l8.73-5.05"></path><path d="M12 22.08V12"></path>',
+            'printer': '<polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect width="12" height="8" x="6" y="14"></rect>',
+            'truck': '<path d="M10 17h4V5H2v12h3"></path><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5"></path><path d="M14 17h1"></path><circle cx="7.5" cy="17.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle>',
+            'alert-circle': '<circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="12"></line><line x1="12" x2="12.01" y1="16" y2="16"></line>',
+            'brain': '<path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"></path><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"></path>',
+            'arrow-right': '<path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>',
+            'refresh-cw': '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path>',
+            'send': '<path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path>',
+            'info': '<circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>',
+            'layers': '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path>',
+            'chevron-left': '<path d="m15 18-6-6 6-6"></path>',
+            'calendar': '<rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line>',
+            'wallet': '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path>',
+            'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle>',
+            'edit-2': '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>',
+            'check-circle-2': '<circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path>',
+            'file-text': '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" x2="8" y1="13" y2="13"></line><line x1="16" x2="8" y1="17" y2="17"></line><line x1="10" x2="8" y1="9" y2="9"></line>',
+            'loader-2': '<path d="M21 12a9 9 0 1 1-6.219-8.56"></path>',
+            'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>',
+            'scroll-text': '<path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4"></path><path d="M19 17V5a2 2 0 0 0-2-2H4"></path>',
+            'bell': '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>'
+        };
+
+        const Icon = ({ name, size = 16, className = "" }) => {
+            const svgContent = ICON_PATHS[name] || '';
+            return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} dangerouslySetInnerHTML={{ __html: svgContent }} />;
+        };
+
+        // --- MOCK DATA (СООТВЕТСТВУЕТ GOOGLE ТАБЛИЦЕ) ---
+        const DEFAULT_DATA = {
+            summary: {
+                // Из листа "Dashboard"
+                netIncome: 450000, 
+                revenue: 1200000, 
+                soldThisMonth: 108500, 
+                eggBalance: 12500,
+                forecastDemand: 14200, 
+                forecastCost: 120700, 
+                forecastExplanation: "База прошлого года (12,100) + Сезонный рост (2,100)",
+                avgCost: 8.5, 
+                avgPrice: 11.2,
+                
+                // Из листа "Stock" (Склад)
+                warehouse: {
+                    c0: 4500,  // Яйцо С0
+                    c1: 5200,  // Яйцо С1
+                    c2: 1800,  // Яйцо С2
+                    sv: 800,   // СВ (Высший)
+                    dirty: 200, // Бой / Грязное
+                    packaging: { 
+                        boxes: 120, // Коробки
+                        trays: 450  // Прокладки
+                    }
+                },
+                // Детализация для графиков (можно также хранить в Dashboard или отдельном листе)
+                incomeDetails: { today: 18500, week: 124000, month: 450000 },
+                soldDetails: {
+                    categories: [
+                        { name: 'C1', amount: 45000, percent: 45 },
+                        { name: 'C0', amount: 32000, percent: 30 },
+                        { name: 'C2', amount: 15000, percent: 15 },
+                        { name: 'СВ', amount: 16500, percent: 10 },
+                    ]
+                }
+            },
+            trends: { income: +12, revenue: +5, sold: +8, churn: -2 },
+            
+            // Из листа "Clients" (Должники)
+            debtors: [
+                { id: 1, name: 'Кафе "Утро"', amount: 45000, days: 5 },
+                { id: 2, name: 'ИП Смирнов', amount: 12500, days: 2 },
+            ],
+            
+            // Статичные или из листа "Orders" (если это прогноз)
+            forecastDetails: [
+                { name: 'Сеть "У дома"', amount: 5500, change: '+10%', reason: 'Плановая акция' },
+                { name: 'Пекарня "Хлеб"', amount: 4200, change: '+5%', reason: 'Сезон выпечки' },
+            ],
+            
+            shipments: {
+                today: [
+                    { id: 1, name: 'Пекарня "Хлеб"', amount: 3600, price: 39600, status: 'pending' },
+                    { id: 2, name: 'ИП Иванов', amount: 13200, price: 13200, status: 'ready' },
+                ],
+                // Из листа "Orders" (Планы на завтра)
+                tomorrow: {
+                    totalAmount: 7000, // 4500 + 2500
+                    shipmentsCount: 2,
+                    details: [
+                        { name: 'Сеть "У дома"', amount: 4500, address: 'ул. Ленина, 45', defaultPrice: 11.50 },
+                        { name: 'Пекарня "Хлеб"', amount: 2500, address: 'пр. Мира, 12', defaultPrice: 11.00 },
+                    ]
+                }
+            },
+            
+            // Из листа "Clients" (Топ клиенты)
+            clients: {
+                total: 45, active: 42, churned: 3, retention: 94,
+                atRisk: [
+                    { id: 101, name: 'Магазин "Продукты"', lastOrderDays: 5, volume: 45000, eggs: 4000, trend: 'down', recommendation: 'Предложить скидку 5% на партию', joinDate: '15.02.2023', totalOrders: 32, totalEggsAllTime: 120000, totalRevenueAllTime: 1200000, totalProfitAllTime: 200000 },
+                ],
+                top: [
+                    // Данные из таблицы Clients (name, total_volume)
+                    { id: 1, name: 'Сеть "У дома"', volume: 5200000, eggs: 22500, trend: 'up', joinDate: '12.03.2023', totalOrders: 145, totalEggsAllTime: 450000, totalRevenueAllTime: 5200000, totalProfitAllTime: 1200000 },
+                    { id: 2, name: 'Пекарня "Хлеб"', volume: 3400000, eggs: 16200, trend: 'stable', joinDate: '10.06.2023', totalOrders: 98, totalEggsAllTime: 310000, totalRevenueAllTime: 3400000, totalProfitAllTime: 850000 },
+                ]
+            },
+            history: [
+                { id: 1, date: '14.12.2023', amount: 4500, sum: 51750 },
+                { id: 2, date: '10.12.2023', amount: 4200, sum: 48300 },
+            ],
+            aiRecommendations: [
+                "Клиент 'Магазин Продукты' не заказывал 4 дня. Риск оттока.",
+                "На пятницу прогнозируется всплеск спроса (+20%).",
+            ],
+        };
+
+        // --- ⚙️ ВСТАВЬ СЮДА ССЫЛКУ НА N8N (потом) ---
+        const API_URL = ""; 
+
+        // --- UI Components ---
+
+        const Card = ({ children, className = "", onClick }) => (
+            <div onClick={onClick} className={`bg-gray-800 rounded-2xl p-4 transition-all duration-200 border border-gray-700/50 ${onClick ? 'active:scale-95 cursor-pointer hover:bg-gray-700' : ''} ${className}`}>
+                {children}
+            </div>
+        );
+
+        const TrendIcon = ({ value, invert = false }) => {
+            const isPositive = value > 0;
+            const isGood = invert ? !isPositive : isPositive;
+            return (
+                <div className={`flex items-center text-xs font-bold ${isGood ? 'text-green-400' : 'text-red-400'}`}>
+                    <Icon name={isPositive ? "trending-up" : "trending-down"} size={14} className="mr-1" />
+                    {Math.abs(value)}%
+                </div>
+            );
+        };
+
+        const ValueDisplay = ({ value, label, subValue, prefix = "", suffix = "" }) => (
+            <div className="flex flex-col h-full justify-between">
+                <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">{label}</span>
+                <div className="mt-1">
+                    <div className="text-xl font-bold text-white tracking-tight">
+                        {prefix}{value.toLocaleString()}{suffix}
+                    </div>
+                    {subValue && <div className="mt-1">{subValue}</div>}
+                </div>
+            </div>
+        );
+
+        const Header = ({ title, subtitle, onBack }) => (
+            <div className="flex items-center gap-3 mb-6 pt-2">
+                {onBack && (
+                    <button onClick={onBack} className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 active:bg-gray-700 hover:text-white transition-colors">
+                        <Icon name="chevron-left" size={20} />
+                    </button>
+                )}
+                <div className="flex-1">
+                    <h1 className="text-2xl font-black text-white tracking-tight leading-none">{title}</h1>
+                    {subtitle && <p className="text-gray-400 text-xs font-medium mt-1">{subtitle}</p>}
+                </div>
+                {!onBack && (
+                    <div className="bg-gray-800 border border-gray-700 p-2 rounded-full shadow-lg">
+                        <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold shadow-inner">К</div>
+                    </div>
+                )}
+            </div>
+        );
+
+        const SectionTitle = ({ title, iconName, colorClass = "text-yellow-500" }) => (
+            <div className="flex items-center gap-2 mb-3 mt-6 px-1">
+                {iconName && <Icon name={iconName} size={18} className={colorClass} />}
+                <h2 className="text-lg font-bold text-gray-200">{title}</h2>
+            </div>
+        );
+
+        const Toast = ({ message, type }) => {
+            if (!message) return null;
+            return (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-fade-in w-[90%] max-w-sm">
+                    <div className="bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+                         {type === 'success' ? <Icon name="check-circle-2" size={20} className="text-green-500" /> : <Icon name="info" size={20} className="text-blue-500" />}
+                         <div className="flex-1 text-sm font-medium">{message}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App ---
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [viewMode, setViewMode] = useState('main'); 
+            const [selectedClient, setSelectedClient] = useState(null);
+            
+            // Mock Data State
+            const [data, setData] = useState(DEFAULT_DATA);
+
+            const [printing, setPrinting] = useState(false);
+            const [sendingMsg, setSendingMsg] = useState(false);
+            const [toast, setToast] = useState({ message: null, type: 'info' });
+
+            const [shipmentPrices, setShipmentPrices] = useState({});
+            const [shipmentQuantities, setShipmentQuantities] = useState({});
+            const [printStage, setPrintStage] = useState('idle');
+            const [companyName, setCompanyName] = useState('Яйцо Хорошее');
+
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
+
+            useEffect(() => {
+                // Если будет API, раскомментируй и используй fetch тут
+                /* if (API_URL) {
+                    fetch(API_URL).then(r => r.json()).then(newData => setData({...DEFAULT_DATA, ...newData})).catch(e => console.error(e));
+                }
+                */
+                const tg = window.Telegram?.WebApp;
+                if (tg && tg.initDataUnsafe?.start_param) {
+                    const rawName = tg.initDataUnsafe.start_param;
+                    if (rawName.startsWith('name_')) setCompanyName(rawName.replace('name_', '').replace(/_/g, ' '));
+                }
+            }, []);
+
+            useEffect(() => {
+                if (viewMode === 'shipments_tomorrow') {
+                    const initialPrices = {};
+                    const initialQuantities = {};
+                    // Используем данные из data (которая пока DEFAULT_DATA)
+                    data.shipments.tomorrow.details.forEach((item, idx) => {
+                        initialPrices[idx] = item.defaultPrice;
+                        initialQuantities[idx] = item.amount;
+                    });
+                    setShipmentPrices(initialPrices);
+                    setShipmentQuantities(initialQuantities);
+                }
+            }, [viewMode, data]);
+
+            const showNotification = (msg, type = 'success') => {
+                if (window.Telegram?.WebApp?.showPopup && window.Telegram.WebApp.isVersionAtLeast && window.Telegram.WebApp.isVersionAtLeast('6.2')) {
+                    window.Telegram.WebApp.showPopup({ title: type === 'success' ? 'Готово' : 'Инфо', message: msg, buttons: [{ type: 'ok' }] });
+                } else {
+                    setToast({ message: msg, type });
+                    setTimeout(() => setToast({ message: null, type: 'info' }), 3000);
+                }
+            };
+
+            const handlePriceChange = (idx, value) => setShipmentPrices(prev => ({ ...prev, [idx]: value }));
+            const handleQuantityChange = (idx, value) => setShipmentQuantities(prev => ({ ...prev, [idx]: value }));
+            const handleComplexPrint = () => { if (printStage !== 'idle') return; setPrintStage('sending'); setTimeout(() => setPrintStage('printing'), 2000); setTimeout(() => setPrintStage('sent'), 4500); setTimeout(() => { setPrintStage('idle'); showNotification("Накладные отправлены в чат!"); }, 6500); };
+            const handlePrint = () => { setPrinting(true); setTimeout(() => { setPrinting(false); showNotification("Задача отправлена в 1С!"); }, 1500); };
+            const handleConfirmDemand = () => { setSendingMsg(true); setTimeout(() => { setSendingMsg(false); showNotification("Рассылка отправлена!"); }, 1500); };
+            const handleMercury = () => showNotification("Запрос в Меркурий отправлен! ВСД гасятся.", "info");
+            const handleRemindDebt = (name) => showNotification(`Напоминание об оплате отправлено ${name}`, "success");
+            const handleSendDoc = (date) => showNotification(`Документы за ${date} отправлены!`, "success");
+
+            const openForecastDetails = () => setViewMode('forecast');
+            const openTomorrowShipments = () => setViewMode('shipments_tomorrow');
+            const openIncomeDetails = () => setViewMode('income_details');
+            const openSoldDetails = () => setViewMode('sold_details');
+            const openClientHistory = () => setViewMode('client_history');
+            const openClientDetails = (client) => { setSelectedClient(client); setViewMode('client_detail'); };
+            
+            const goBack = () => {
+                if (viewMode === 'client_history') {
+                    setViewMode('client_detail');
+                } else {
+                    setViewMode('main');
+                    setSelectedClient(null);
+                    setPrintStage('idle');
+                }
+            };
+
+            // --- Renders ---
+
+            const renderWarehouseDetails = () => (
+                <div className="animate-slide-in pb-20">
+                    <Header title="Склад" subtitle="Детализация остатков" onBack={goBack} />
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                        <Card className="bg-gray-800"><ValueDisplay label="Яйцо С0" value={data.summary.warehouse.c0} suffix=" шт" /></Card>
+                        <Card className="bg-gray-800"><ValueDisplay label="Яйцо С1" value={data.summary.warehouse.c1} suffix=" шт" /></Card>
+                        <Card className="bg-gray-800"><ValueDisplay label="Яйцо С2" value={data.summary.warehouse.c2} suffix=" шт" /></Card>
+                        <Card className="bg-gray-800"><ValueDisplay label="СВ (Высший)" value={data.summary.warehouse.sv} suffix=" шт" /></Card>
+                        <Card className="bg-red-900/20 border-red-900/50"><ValueDisplay label="Бой / Грязное" value={data.summary.warehouse.dirty} suffix=" шт" /></Card>
+                    </div>
+                    <SectionTitle title="Тара и упаковка" iconName="package" />
+                    <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                        <div className="flex justify-between items-center border-b border-gray-700 pb-3 mb-3">
+                            <span className="text-gray-400">Коробки (гофра)</span>
+                            <span className="font-bold text-lg">{data.summary.warehouse.packaging.boxes} шт</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400">Прокладки (бугор)</span>
+                            <span className="font-bold text-lg">{data.summary.warehouse.packaging.trays} шт</span>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderIncomeDetails = () => (
+                <div className="animate-slide-in pb-20">
+                    <Header title="Чистая прибыль" subtitle="Детализация доходов" onBack={goBack} />
+                    <div className="space-y-3">
+                        <Card className="bg-gray-800 border-l-4 border-green-500"><ValueDisplay label="За сегодня" value={data.summary.incomeDetails.today} prefix="₽" /></Card>
+                        <Card className="bg-gray-800"><ValueDisplay label="За неделю" value={data.summary.incomeDetails.week} prefix="₽" /></Card>
+                        <Card className="bg-gray-800"><ValueDisplay label="За месяц" value={data.summary.incomeDetails.month} prefix="₽" /></Card>
+                    </div>
+                </div>
+            );
+
+            const renderSoldDetails = () => (
+                <div className="animate-slide-in pb-20">
+                    <Header title="Продажи" subtitle="Детализация за месяц" onBack={goBack} />
+                    <SectionTitle title="По категориям" iconName="layers" />
+                    <div className="space-y-3 mb-6">
+                        {data.summary.soldDetails.categories.map((cat, idx) => (
+                            <div key={idx} className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                                <div className="flex justify-between mb-2">
+                                    <span className="font-bold text-white">Яйцо {cat.name}</span>
+                                    <span className="font-mono">{cat.amount.toLocaleString()} шт</span>
+                                </div>
+                                <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-yellow-500 h-full" style={{ width: `${cat.percent}%` }}></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <SectionTitle title="Топ покупателей (Месяц)" iconName="users" />
+                    <div className="space-y-2">
+                        {data.clients.top.map((client, idx) => (
+                            <div key={idx} className="bg-gray-800 p-4 rounded-xl flex items-center justify-between border border-gray-700">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold">#{idx + 1}</div>
+                                    <div className="font-bold text-sm text-white">{client.name}</div>
+                                </div>
+                                <div className="text-xs text-gray-400">{client.eggs.toLocaleString()} шт</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const renderForecastDetails = () => (
+                <div className="animate-slide-in pb-20">
+                    <Header title="Прогноз закупки" subtitle="Детализация на следующую неделю" onBack={goBack} />
+                    <div className="bg-indigo-900/20 border border-indigo-500/30 p-4 rounded-2xl mb-6 text-center">
+                        <span className="text-indigo-300 text-xs font-bold uppercase">Общий объем</span>
+                        <div className="text-4xl font-bold text-white mt-1">{data.summary.forecastDemand.toLocaleString()}</div>
+                        <div className="text-indigo-200/60 text-xs mt-1">яиц нужно закупить</div>
+                        <div className="mt-4 pt-4 border-t border-indigo-500/30">
+                            <span className="text-indigo-300 text-xs font-bold uppercase">Бюджет закупки</span>
+                            <div className="text-2xl font-bold text-green-400 mt-1">~ {data.summary.forecastCost.toLocaleString()} ₽</div>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {data.forecastDetails.map((item, idx) => (
+                            <div key={idx} className="bg-gray-800 p-4 rounded-xl flex justify-between items-center border border-gray-700">
+                                <div><div className="font-bold text-white text-sm">{item.name}</div><div className="text-[10px] text-gray-400 mt-1">{item.reason}</div></div>
+                                <div className="text-right">
+                                    <div className="text-white font-mono font-bold">{item.amount}</div>
+                                    <div className={`text-[10px] ${item.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>{item.change}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const renderTomorrowShipments = () => (
+                <div className="animate-slide-in pb-24">
+                    <Header title="План на завтра" subtitle="Установка цен и количества" onBack={goBack} />
+                    <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-2xl mb-6 flex justify-between items-center">
+                        <div>
+                            <span className="text-blue-300 text-xs font-bold uppercase">Всего к отгрузке</span>
+                            <div className="text-3xl font-bold text-white mt-1">{data.shipments.tomorrow.totalAmount.toLocaleString()} <span className="text-sm font-normal text-gray-400">шт</span></div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-blue-300 text-xs font-bold uppercase">Клиентов</span>
+                            <div className="text-2xl font-bold text-white mt-1">{data.shipments.tomorrow.shipmentsCount}</div>
+                        </div>
+                    </div>
+                    <div className="space-y-3 mb-24">
+                        {data.shipments.tomorrow.details.map((item, idx) => {
+                            const qty = shipmentQuantities[idx] || 0;
+                            const price = shipmentPrices[idx] || 0;
+                            const total = Math.round(qty * price);
+                            return (
+                                <div key={idx} className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <div className="font-bold text-white text-sm">{item.name}</div>
+                                            <div className="flex items-center gap-1 text-gray-400 text-[10px] mt-1"><Icon name="map-pin" size={10} /> {item.address}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-green-400 font-bold mb-1">~ {total.toLocaleString()} ₽</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <div className="flex-1 flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-gray-700/50">
+                                            <div className="text-gray-500 text-[10px] font-bold uppercase">Кол-во:</div>
+                                            <input type="number" value={shipmentQuantities[idx] || ''} onChange={(e) => handleQuantityChange(idx, e.target.value)} className="bg-transparent text-white font-mono font-bold text-sm outline-none w-full text-right" />
+                                            <div className="text-gray-500 text-xs">шт</div>
+                                        </div>
+                                        <div className="flex-1 flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-gray-700/50">
+                                            <div className="text-gray-500 text-[10px] font-bold uppercase">Цена:</div>
+                                            <input type="number" step="0.1" value={shipmentPrices[idx] || ''} onChange={(e) => handlePriceChange(idx, e.target.value)} className="bg-transparent text-white font-mono font-bold text-sm outline-none w-full text-right" />
+                                            <div className="text-gray-500 text-xs">₽</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0F1115] via-[#0F1115] to-transparent z-50">
+                        <div className="max-w-md mx-auto">
+                            <button onClick={handleComplexPrint} disabled={printStage !== 'idle'} className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-bold text-sm transition-all shadow-xl ${printStage === 'sent' ? 'bg-green-600 text-white' : printStage !== 'idle' ? 'bg-gray-700 text-gray-300' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/40 active:scale-95'}`}>
+                                {printStage === 'idle' && <><Icon name="printer" size={18} /> Распечатать накладные</>}
+                                {printStage === 'sending' && <><Icon name="loader-2" size={18} className="animate-spin" /> Отправляем в 1С...</>}
+                                {printStage === 'printing' && <><Icon name="file-text" size={18} className="animate-pulse" /> Формируем файлы...</>}
+                                {printStage === 'sent' && <><Icon name="check-circle-2" size={18} /> Отправили в чат!</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderClientHistory = () => (
+                <div className="animate-slide-in pb-20">
+                    <Header title="История заказов" subtitle={selectedClient?.name} onBack={() => setViewMode('client_detail')} />
+                    <div className="space-y-3">
+                        {data.history.map((order) => (
+                            <div key={order.id} className="bg-gray-800 p-4 rounded-xl flex justify-between items-center border border-gray-700">
+                                <div>
+                                    <div className="font-bold text-white text-sm">{order.date}</div>
+                                    <div className="text-xs text-gray-400 mt-1">{order.amount} шт</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right font-bold text-white">{order.sum.toLocaleString()} ₽</div>
+                                    <button onClick={() => handleSendDoc(order.date)} className="bg-blue-600/20 text-blue-400 p-2 rounded-lg active:scale-95 transition-all"><Icon name="file-text" size={16} /></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const renderClientDetailView = () => {
+                if (!selectedClient) return null;
+                return (
+                    <div className="animate-slide-in pb-20">
+                        <Header title={selectedClient.name} subtitle="Карточка клиента" onBack={goBack} />
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <Card className="col-span-2 bg-gradient-to-r from-gray-800 to-gray-800 border-l-4 border-yellow-500">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500"><Icon name="calendar" size={20} /></div>
+                                    <div><div className="text-gray-400 text-[10px] font-bold uppercase">Сотрудничаем с</div><div className="text-white font-bold">{selectedClient.joinDate}</div></div>
+                                </div>
+                            </Card>
+                            <Card><ValueDisplay label="Всего заказов" value={selectedClient.totalOrders} /></Card>
+                            <Card><ValueDisplay label="Всего яиц" value={selectedClient.totalEggsAllTime} /></Card>
+                            <Card className="col-span-2 bg-gray-800">
+                                <div className="flex justify-between items-center mb-2"><span className="text-gray-400 text-[10px] font-bold uppercase">Финансы (Total)</span><Icon name="wallet" size={16} className="text-green-500" /></div>
+                                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-700">
+                                    <div><div className="text-xs text-gray-500">Оборот</div><div className="text-white font-bold text-lg">{selectedClient.totalRevenueAllTime.toLocaleString()} ₽</div></div>
+                                    <div><div className="text-xs text-gray-500">Чистая прибыль</div><div className="text-green-400 font-bold text-lg">+{selectedClient.totalProfitAllTime.toLocaleString()} ₽</div></div>
+                                </div>
+                            </Card>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={openClientHistory} className="flex-1 bg-gray-800 border border-gray-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"><Icon name="file-text" size={16} /> История</button>
+                            <button className="flex-1 bg-green-600/20 border border-green-500/50 text-green-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"><Icon name="phone" size={16} /> Позвонить</button>
+                        </div>
+                    </div>
+                );
+            };
+
+            const renderDashboard = () => (
+                <div className="space-y-3 animate-fade-in pb-20">
+                    <div className="grid grid-cols-2 gap-3">
+                        <Card onClick={openIncomeDetails} className="bg-gray-800 border-l-4 border-green-500 cursor-pointer active:scale-95 transition-all"><ValueDisplay label="Чистая прибыль" value={data.summary.netIncome} prefix="₽" subValue={<TrendIcon value={data.trends.income} />} /></Card>
+                        <Card><ValueDisplay label="Оборот (Мес)" value={data.summary.revenue} prefix="₽" subValue={<TrendIcon value={data.trends.revenue} />} /></Card>
+                    </div>
+                    <Card onClick={openSoldDetails} className="bg-gray-800 relative overflow-hidden cursor-pointer active:scale-95 transition-all">
+                        <div className="relative z-10 flex justify-between items-center">
+                            <div><span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Продано яиц (Месяц)</span><div className="text-3xl font-bold text-white mt-1">{data.summary.soldThisMonth.toLocaleString()} <span className="text-sm text-gray-500 font-normal">шт</span></div></div>
+                            <div className="bg-yellow-500/10 p-2 rounded-lg"><Icon name="layers" size={24} className="text-yellow-500" /></div>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2"><TrendIcon value={data.trends.sold} /><span className="text-[10px] text-gray-500">к прошлому месяцу</span></div>
+                    </Card>
+                    <Card onClick={openForecastDetails} className="col-span-2 bg-gradient-to-br from-indigo-900 to-gray-900 border border-indigo-500/30 cursor-pointer">
+                        <div className="flex justify-between items-start">
+                            <div><span className="text-indigo-300 text-xs font-bold uppercase flex items-center gap-1"><Icon name="brain" size={12} /> Прогноз закупки (Неделя) <Icon name="arrow-right" size={12} /></span><h3 className="text-4xl font-bold text-white mt-2">{data.summary.forecastDemand.toLocaleString()} шт.</h3></div>
+                            <div className="text-right bg-indigo-500/20 px-2 py-1 rounded"><div className="text-[10px] text-indigo-200 uppercase">Спрос</div><div className="text-green-400 font-bold">+15%</div></div>
+                        </div>
+                        <div className="mt-3 bg-black/20 p-2 rounded-lg border border-white/5 flex gap-2 items-start"><Icon name="info" size={14} className="text-indigo-300 shrink-0 mt-0.5" /><p className="text-xs text-indigo-100/80 leading-relaxed">{data.summary.forecastExplanation}</p></div>
+                    </Card>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Card onClick={() => setActiveTab('clients')}><div className="flex justify-between items-start"><Icon name="users" size={20} className="text-blue-400" /><Icon name="arrow-right" size={16} className="text-gray-600" /></div><div className="mt-3"><div className="text-2xl font-bold text-white">{data.clients.active}</div><div className="text-xs text-gray-400">Активные клиенты</div></div><div className="mt-2 text-xs flex items-center gap-1 text-red-400 bg-red-500/10 px-2 py-1 rounded w-fit"><Icon name="alert-circle" size={10} /> {data.clients.churned} риск оттока</div></Card>
+                        <Card onClick={() => setViewMode('warehouse')} className="relative overflow-hidden cursor-pointer">
+                            <div className="relative z-10"><div className="flex justify-between"><Icon name="package" size={20} className="text-orange-400" /><Icon name="arrow-right" size={16} className="text-gray-600" /></div><div className="mt-3"><div className="text-2xl font-bold text-white">{data.summary.eggBalance}</div><div className="text-xs text-gray-400">Остаток на складе</div></div></div>
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700"><div className="h-full bg-orange-500 w-[70%]"></div></div>
+                        </Card>
+                    </div>
+                    {/* AI Recommendations */}
+                    <div className="space-y-2 mt-2">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase ml-1">AI Рекомендации</h3>
+                        {data.aiRecommendations.map((rec, i) => (
+                            <div key={i} className="bg-gray-800/50 border border-gray-700 p-3 rounded-xl flex gap-3 items-start">
+                                <div className="bg-purple-500/20 p-1.5 rounded-lg shrink-0"><Icon name="brain" size={14} className="text-purple-400" /></div>
+                                <p className="text-xs text-gray-300 leading-normal">{rec}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const renderOperations = () => (
+                <div className="animate-slide-in space-y-4 pb-20">
+                    <button onClick={handleMercury} className="w-full mercury-btn py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-white shadow-lg active:scale-95 transition-all">
+                        <Icon name="scroll-text" size={18} /> Статус ВСД (Меркурий)
+                    </button>
+                    <SectionTitle title="Сегодня на отгрузку" iconName="truck" />
+                    <div className="space-y-2">
+                        {data.shipments.today.map((item) => (
+                            <div key={item.id} className="bg-gray-800 p-4 rounded-xl flex justify-between items-center border border-gray-700 shadow-sm">
+                                <div><div className="font-bold text-white text-sm">{item.name}</div><div className="text-xs text-gray-400 mt-1 flex items-center gap-1"><Icon name="package" size={12} /> {item.amount} яиц</div></div>
+                                <div className="text-right">
+                                    <div className="bg-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold uppercase mb-1">{item.status === 'shipped' ? 'Отгружено' : 'В сборке'}</div>
+                                    <div className="text-xs font-bold text-gray-300">{item.price.toLocaleString()} ₽</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div onClick={openTomorrowShipments} className="p-5 bg-gray-800 rounded-xl mt-6 border border-gray-700 active:scale-[0.98] cursor-pointer hover:border-gray-500 transition-all group">
+                        <div className="flex justify-between items-center mb-4">
+                            <div><span className="text-gray-400 text-xs font-bold uppercase group-hover:text-gray-200 flex items-center gap-1">План на завтра <Icon name="arrow-right" size={12} /></span><div className="text-white font-bold text-xl mt-1">{data.shipments.tomorrow.totalAmount.toLocaleString()} шт.</div></div>
+                            <div className="text-right"><span className="text-gray-400 text-xs font-bold uppercase">Отгрузок</span><div className="text-white font-bold text-xl mt-1">{data.shipments.tomorrow.shipmentsCount}</div></div>
+                        </div>
+                        <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden mb-4"><div className="bg-blue-500 h-full w-[45%]"></div></div>
+                        <button onClick={(e) => { e.stopPropagation(); handleConfirmDemand(); }} disabled={sendingMsg} className="w-full py-3 rounded-lg flex items-center justify-center gap-2 font-bold text-sm transition-all bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg">
+                            {sendingMsg ? <Icon name="refresh-cw" size={16} className="animate-spin" /> : <Icon name="send" size={16} />} {sendingMsg ? 'Рассылка...' : 'Разослать подтверждение'}
+                        </button>
+                    </div>
+                    <button onClick={handlePrint} disabled={printing} className="w-full py-4 rounded-xl mt-2 flex items-center justify-center gap-2 font-bold text-white transition-all border border-white/5 bg-gray-800 hover:bg-gray-700 active:scale-95">
+                        {printing ? <Icon name="refresh-cw" className="animate-spin" /> : <Icon name="printer" />} {printing ? 'Печать...' : 'Распечатать накладные'}
+                    </button>
+                </div>
+            );
+
+            const renderClients = () => (
+                <div className="animate-slide-in space-y-4 pb-20">
+                    <SectionTitle title="Дебиторская задолженность" iconName="wallet" colorClass="text-red-500" />
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                        {data.debtors.map((d) => (
+                            <div key={d.id} onClick={() => openClientDetails(d)} className="min-w-[200px] bg-red-900/20 border border-red-500/30 p-3 rounded-xl flex flex-col justify-between cursor-pointer active:scale-95 transition-all">
+                                <div>
+                                    <div className="font-bold text-sm">{d.name}</div>
+                                    <div className="text-xl font-bold text-red-400 mt-1">{d.amount.toLocaleString()} ₽</div>
+                                    <div className="text-[10px] text-red-300 mt-1">Просрочка {d.days} дн.</div>
+                                </div>
+                                <button onClick={(e) => { e.stopPropagation(); handleRemindDebt(d.name); }} className="mt-3 bg-red-500/20 hover:bg-red-500/40 text-red-300 text-xs font-bold py-2 rounded flex items-center justify-center gap-1">
+                                    <Icon name="bell" size={12} /> Напомнить
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                        <Card><ValueDisplay label="Retention Rate" value={data.clients.retention} suffix="%" /></Card>
+                        <Card><ValueDisplay label="Топ Клиентов" value={data.clients.top.length} /></Card>
+                    </div>
+
+                    {data.clients.atRisk.length > 0 && (
+                        <>
+                            <SectionTitle title="В зоне риска" iconName="alert-circle" colorClass="text-red-500" />
+                            <div className="space-y-2">
+                                {data.clients.atRisk.map((client, idx) => (
+                                    <div key={`risk-${idx}`} onClick={() => openClientDetails(client)} className="bg-gray-800/80 border border-red-500/30 p-4 rounded-xl relative overflow-hidden active:scale-95 transition-all cursor-pointer">
+                                        <div className="absolute top-0 right-0 p-2">
+                                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                        </div>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <div className="font-bold text-white text-sm">{client.name}</div>
+                                                <div className="text-[10px] text-red-300 font-bold mt-1">Не заказывал {client.lastOrderDays} дней</div>
+                                            </div>
+                                            <div className="bg-red-500/10 px-2 py-1 rounded text-red-400 text-[10px] font-bold uppercase tracking-wider">Отток</div>
+                                        </div>
+                                        <div className="bg-red-500/10 p-2 rounded-lg flex items-start gap-2 border border-red-500/20">
+                                            <Icon name="brain" size={14} className="text-red-400 mt-0.5 shrink-0" />
+                                            <p className="text-[11px] text-red-100 leading-tight">{client.recommendation}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    <SectionTitle title="Топ клиентов" iconName="users" />
+                    <div className="space-y-2">
+                        {data.clients.top.map((client, idx) => (
+                            <div key={idx} onClick={() => openClientDetails(client)} className="bg-gray-800 p-4 rounded-xl flex items-center justify-between border border-gray-700/50 cursor-pointer hover:bg-gray-700 active:scale-95 transition-all">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg ${idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : 'bg-orange-700'}`}>#{idx + 1}</div>
+                                    <div>
+                                        <div className="text-white font-bold text-sm flex items-center gap-1">{client.name} <Icon name="chevron-left" size={14} className="rotate-180 text-gray-600" /></div>
+                                        <div className="flex gap-3 mt-1">
+                                            <div className="text-[10px] text-gray-400"><span className="text-gray-500">Объем:</span> <span className="text-gray-200">{client.volume.toLocaleString()} ₽</span></div>
+                                            <div className="text-[10px] text-gray-400 border-l border-gray-600 pl-3"><span className="text-gray-500">Яиц:</span> <span className="text-gray-200">{client.eggs.toLocaleString()}</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <TrendIcon value={10} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen text-gray-100 font-sans selection:bg-yellow-500/30">
+                    <Toast message={toast.message} type={toast.type} />
+                    <div className="max-w-md mx-auto p-4">
+                        {viewMode === 'main' ? (
+                            <>
+                                <Header title={companyName} subtitle="Панель управления" />
+                                {activeTab === 'dashboard' && renderDashboard()}
+                                {activeTab === 'operations' && renderOperations()}
+                                {activeTab === 'clients' && renderClients()}
+                                <div className="fixed bottom-0 left-0 right-0 bg-[#0F1115]/90 backdrop-blur-xl border-t border-gray-800 p-2 z-50">
+                                    <div className="max-w-md mx-auto grid grid-cols-3 gap-1">
+                                        <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 ${activeTab === 'dashboard' ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-500 hover:text-gray-300'}`}><Icon name="layers" size={20} /><span className="text-[10px] mt-1 font-medium">Сводка</span></button>
+                                        <button onClick={() => setActiveTab('operations')} className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 ${activeTab === 'operations' ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-500 hover:text-gray-300'}`}><Icon name="package" size={20} /><span className="text-[10px] mt-1 font-medium">Операции</span></button>
+                                        <button onClick={() => setActiveTab('clients')} className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 ${activeTab === 'clients' ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-500 hover:text-gray-300'}`}><Icon name="users" size={20} /><span className="text-[10px] mt-1 font-medium">Клиенты</span></button>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            viewMode === 'forecast' ? renderForecastDetails() :
+                            viewMode === 'client_detail' ? renderClientDetailView() :
+                            viewMode === 'shipments_tomorrow' ? renderTomorrowShipments() :
+                            viewMode === 'warehouse' ? renderWarehouseDetails() : 
+                            viewMode === 'income_details' ? renderIncomeDetails() : 
+                            viewMode === 'sold_details' ? renderSoldDetails() :
+                            viewMode === 'client_history' ? renderClientHistory() : null
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
